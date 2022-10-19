@@ -1,2 +1,4 @@
 /users.json
-/.idea/*
+/push-server
+/http.http
+/.idea

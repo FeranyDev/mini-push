@@ -1,7 +1,6 @@
 
-
-version: "0.0.1"
-
 host: "localhost"
 
 port: 3000
+
+tg_bot: "5137003298:AAFKiOeK6z-EaujbZ2u4cj_iBOYcb77ZUlE"

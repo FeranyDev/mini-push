@@ -1,4 +1,4 @@
-module github.com/feranydev/push-server
+module github.com/feranydev/mini-push
 
 go 1.18
 

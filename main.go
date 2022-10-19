@@ -2,17 +2,15 @@ package main
 
 import (
 	"encoding/json"
-	"github.com/feranydev/push-server/api"
-	"github.com/feranydev/push-server/config"
+	"flag"
+	"github.com/feranydev/mini-push/api"
+	"github.com/feranydev/mini-push/config"
 	"github.com/google/uuid"
 	"github.com/labstack/gommon/log"
 	"net/http"
+	"strings"
 
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
-)
-
-var (
-	tgToken = "5137003298:AAFKiOeK6z-EaujbZ2u4cj_iBOYcb77ZUlE"
 )
 
 var t config.T
@@ -34,21 +32,32 @@ type V1Hitokoto struct {
 
 func main() {
 
+	flag.Parse()
+	args := flag.Args()
+
+	deploy := config.Deploy
+
 	t.ReadData()
 
-	log.SetLevel(log.DEBUG)
-
-	bot, err := tgbotapi.NewBotAPI(tgToken)
+	bot, err := tgbotapi.NewBotAPI(deploy.TgBot)
 	if err != nil {
 		log.Panic(err)
 	}
-	bot.Debug = true
+
+	if len(args) != 0 {
+		if args[0] == "debug" {
+			bot.Debug = true
+			log.SetLevel(log.DEBUG)
+		}
+	}
+
+	config.TgBot = bot
 	log.Infof("Authorized on account %s", bot.Self.UserName)
-	log.Infof("Service started successfully currently one with %d users", len(t.User))
+	log.Infof("Service started successfully currently one with %d users", len(t.Users))
 	u := tgbotapi.NewUpdate(0)
 	u.Timeout = 60
 
-	go api.Start(bot, &t)
+	go api.Start(bot, &t, deploy)
 
 	updates := bot.GetUpdatesChan(u)
 	for update := range updates {
@@ -64,10 +73,38 @@ func main() {
 							msg.Text = "你已经注册过了，推送ID为: " + user.PushId
 						} else {
 							pushID := uuid.NewString()
-							t.AddUser(config.User{PushId: pushID, TgId: update.Message.Chat.ID})
+							t.AddUser(config.User{PushId: pushID, TgId: update.Message.Chat.ID, PushServer: "tg"})
 							msg.Text = "注册成功，推送ID为: " + pushID
 						}
-						bot.Send(msg)
+						_, _ = bot.Send(msg)
+					case "bindpushlite":
+						if update.Message.CommandArguments() != "" {
+							token := uuid.NewString()
+							t.AddUser(config.User{
+								PushId:      token,
+								TgId:        update.Message.Chat.ID,
+								PushServer:  "PushLite",
+								ServerToken: update.Message.CommandArguments(),
+							})
+							msg := tgbotapi.NewMessage(update.Message.Chat.ID, "绑定成功，推送ID为: "+token)
+							_, _ = bot.Send(msg)
+						} else {
+							_, _ = bot.Send(tgbotapi.NewMessage(update.Message.Chat.ID, "请使用 /bindPushLite [客户端Token] 来绑定推送设备"))
+						}
+					case "select":
+						users := t.FindAllPush(update.Message.Chat.ID)
+						marshal, _ := json.Marshal(users)
+						data := string(marshal)
+						data = strings.Replace(data, "pushId", "推送ID", -1)
+						data = strings.Replace(data, "pushServer", "推送服务", -1)
+						data = strings.Replace(data, "serverToken", "客户端Token", -1)
+						data = strings.Replace(data, "tgId", "TelegramID", -1)
+						data = strings.Replace(data, ",", ",\n", -1)
+						data = strings.Replace(data, "},\n{", "},\n\n{", -1)
+						data = strings.Replace(data, "[", "", -1)
+						data = strings.Replace(data, "]", "", -1)
+						msg := tgbotapi.NewMessage(update.Message.Chat.ID, data)
+						_, _ = bot.Send(msg)
 					}
 				} else {
 					log.Infof("[%s] %s", update.Message.From.UserName, update.Message.Text)
@@ -85,7 +122,7 @@ func main() {
 						log.Errorf("Error while unmarshaling hitokoto: %s", err)
 					}
 					msg := tgbotapi.NewMessage(update.Message.Chat.ID, v1Hitokoto.Hitokoto)
-					bot.Send(msg)
+					_, _ = bot.Send(msg)
 				}
 			}(bot, &update)
 		}

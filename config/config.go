@@ -6,10 +6,13 @@ import (
 	"os"
 )
 
+var Deploy *Config
+
 type Config struct {
-	Version string `yaml:"version"`
-	Host    string `yaml:"host"`
-	Port    int    `yaml:"port"`
+	Host string `yaml:"host"`
+	Port int    `yaml:"port"`
+
+	TgBot string `yaml:"tg_bot"`
 }
 
 func init() {
@@ -18,11 +21,9 @@ func init() {
 		log.Panicf("Error reading file: %v", err)
 	}
 
-	var config Config
-
-	if err = yaml.Unmarshal(file, &config); err != nil {
+	if err = yaml.Unmarshal(file, &Deploy); err != nil {
 		log.Panicf("Error while unmarshaling config: %s", err)
 	}
 
-	log.Debug("Read config.yaml file: %s", config)
+	log.Debug("Read config.yaml file: %s", Deploy)
 }
