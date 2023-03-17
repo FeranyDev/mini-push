@@ -5,7 +5,7 @@ import (
 	"fmt"
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 	"github.com/labstack/gommon/log"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"os"
 	"strings"
@@ -39,7 +39,7 @@ func (t *T) ReadData() {
 	if err = json.Unmarshal(file, &t); err != nil {
 		log.Panicf("Error while unmarshaling config: %s", err)
 	}
-	//log.Debug("Read users.json file: %s", t.Users)
+	log.Infof("Read users.json success")
 }
 
 func (t *T) AddUser(user User) {
@@ -53,6 +53,25 @@ func (t *T) AddUser(user User) {
 	if err = os.WriteFile("./users.json", tmp, 0644); err != nil {
 		log.Errorf("Error while writing config: %s", err)
 	}
+}
+
+func (t *T) DeletePushToken(pushId string, tgId int64) error {
+	t.lck.Lock()
+	defer t.lck.Unlock()
+	for i, u := range t.Users {
+		if u.PushId == pushId && u.TgId == tgId {
+			t.Users = append(t.Users[:i], t.Users[i+1:]...)
+			tmp, err := json.Marshal(t)
+			if err != nil {
+				log.Debug("Error while marshaling config: %s", err)
+			}
+			if err = os.WriteFile("./users.json", tmp, 0644); err != nil {
+				log.Errorf("Error while writing config: %s", err)
+			}
+			return nil
+		}
+	}
+	return fmt.Errorf("not found user")
 }
 
 func (t *T) FindAllPush(tgId int64) (users []User) {
@@ -104,6 +123,7 @@ func (user *User) Send(title, data string, copy bool) (err error) {
 			_, err = TgBot.Send(msg)
 			return
 		}
+
 	// https://github.com/xlvecle/PushLite
 	case "PushLite":
 		tmp := "0"
@@ -144,7 +164,7 @@ func (user *User) Send(title, data string, copy bool) (err error) {
 			return err
 		} else {
 			defer resp.Body.Close()
-			body, _ := ioutil.ReadAll(resp.Body)
+			body, _ := io.ReadAll(resp.Body)
 			log.Debugf("fcm response: %s", body)
 			return nil
 		}

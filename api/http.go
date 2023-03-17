@@ -2,12 +2,14 @@ package api
 
 import (
 	"fmt"
+	"net/http"
+	"time"
+
 	"github.com/feranydev/mini-push/config"
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 	"github.com/labstack/echo/v4"
+	"github.com/labstack/echo/v4/middleware"
 	"github.com/labstack/gommon/log"
-	"net/http"
-	"time"
 )
 
 type back struct {
@@ -20,6 +22,22 @@ func Start(bot *tgbotapi.BotAPI, users *config.T, deploy *config.Config) {
 	e := echo.New()
 
 	e.HideBanner = true
+
+	e.IPExtractor = echo.ExtractIPFromRealIPHeader()
+
+	e.Use(middleware.RequestLoggerWithConfig(middleware.RequestLoggerConfig{
+		LogRemoteIP: true,
+		LogMethod:   true,
+		LogURI:      true,
+		LogValuesFunc: func(c echo.Context, v middleware.RequestLoggerValues) error {
+			log.Infof("%v %v %v", v.RemoteIP, v.Method, v.URI)
+			return nil
+		},
+	}))
+
+	//e.Use(middleware.LoggerWithConfig(middleware.LoggerConfig{
+	//	Format: "${time_rfc3339} ${remote_ip} ${method} ${uri}\n",
+	//}))
 
 	e.GET("/", func(c echo.Context) error {
 		return c.String(http.StatusOK, "Oh! It's working!")
@@ -109,9 +127,10 @@ func Start(bot *tgbotapi.BotAPI, users *config.T, deploy *config.Config) {
 	e.POST("/push/:pushId", func(c echo.Context) error {
 		if user, ok := users.FindUserByPushId(c.Param("pushId")); ok {
 			data := struct {
-				Title string `json:"title"`
-				Text  string `json:"text"`
-				Copy  bool   `json:"copy"`
+				Title   string `json:"title"`
+				Text    string `json:"text"`
+				Message string `json:"message"`
+				Copy    bool   `json:"copy"`
 			}{}
 			if err := c.Bind(&data); err != nil {
 				return c.JSON(http.StatusBadRequest, back{
@@ -120,7 +139,12 @@ func Start(bot *tgbotapi.BotAPI, users *config.T, deploy *config.Config) {
 					Timestamp: time.Now().Unix(),
 				})
 			}
-			if err := user.Send(data.Title, data.Text, data.Copy); err != nil {
+			log.Debugf("push data: %+v", data)
+			tmp := data.Text
+			if tmp == "" {
+				tmp = data.Message
+			}
+			if err := user.Send(data.Title, tmp, data.Copy); err != nil {
 				log.Errorf("send message to %d error: %s", user.PushId, err)
 				return c.JSON(http.StatusInternalServerError, back{
 					Code:      500,
@@ -186,13 +210,9 @@ func Start(bot *tgbotapi.BotAPI, users *config.T, deploy *config.Config) {
 			})
 		}
 		if user, ok := users.FindUserByPushId(data.PushKey); ok {
-			if err := user.Send(data.Text, data.Desp, false); err != nil {
+			if err := user.Send(data.Text, data.Desp, true); err != nil {
 				log.Errorf("send message to %d error: %s", user.TgId, err)
-				return c.JSON(http.StatusInternalServerError, back{
-					Code:      500,
-					Msg:       "send message error",
-					Timestamp: time.Now().Unix(),
-				})
+				return sendError(c)
 			}
 			return success(c)
 		} else {
@@ -201,6 +221,14 @@ func Start(bot *tgbotapi.BotAPI, users *config.T, deploy *config.Config) {
 	})
 
 	e.Logger.Fatal(e.Start(fmt.Sprintf(":%d", deploy.Port)))
+}
+
+func sendError(c echo.Context) error {
+	return c.JSON(http.StatusInternalServerError, back{
+		Code:      500,
+		Msg:       "send message error",
+		Timestamp: time.Now().Unix(),
+	})
 }
 
 func success(c echo.Context) error {

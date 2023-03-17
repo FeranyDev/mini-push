@@ -30,10 +30,25 @@ type V1Hitokoto struct {
 	Length     int    `json:"length"`
 }
 
-func main() {
+var (
+	debug = false
+)
 
+func init() {
+	log.SetHeader("${time_rfc3339} ${level} ${message}")
 	flag.Parse()
 	args := flag.Args()
+
+	if len(args) != 0 {
+		if args[0] == "debug" {
+			debug = true
+			log.SetLevel(log.DEBUG)
+			log.SetHeader("${time_rfc3339} ${level} ${short_file}:${line} ${message}")
+		}
+	}
+}
+
+func main() {
 
 	deploy := config.Deploy
 
@@ -43,15 +58,11 @@ func main() {
 	if err != nil {
 		log.Panic(err)
 	}
-
-	if len(args) != 0 {
-		if args[0] == "debug" {
-			bot.Debug = true
-			log.SetLevel(log.DEBUG)
-		}
+	if debug {
+		bot.Debug = true
 	}
-
 	config.TgBot = bot
+
 	log.Infof("Authorized on account %s", bot.Self.UserName)
 	log.Infof("Service started successfully currently one with %d users", len(t.Users))
 	u := tgbotapi.NewUpdate(0)
@@ -105,6 +116,20 @@ func main() {
 						data = strings.Replace(data, "]", "", -1)
 						msg := tgbotapi.NewMessage(update.Message.Chat.ID, data)
 						_, _ = bot.Send(msg)
+					case "delete":
+						if update.Message.CommandArguments() != "" {
+							if err := t.DeletePushToken(update.Message.CommandArguments(), update.Message.Chat.ID); err != nil {
+								log.Errorf("删除推送ID失败: %s", err)
+								_, _ = bot.Send(tgbotapi.NewMessage(update.Message.Chat.ID, "删除失败，可能是推送ID不存在或者你没有权限删除"))
+							} else {
+								msg := tgbotapi.NewMessage(update.Message.Chat.ID, "删除成功")
+								_, _ = bot.Send(msg)
+							}
+						} else {
+							_, _ = bot.Send(tgbotapi.NewMessage(update.Message.Chat.ID, "请使用 /delete [推送ID] 来删除推送设备"))
+						}
+					default:
+						_, _ = bot.Send(tgbotapi.NewMessage(update.Message.Chat.ID, "未知指令"))
 					}
 				} else {
 					log.Infof("[%s] %s", update.Message.From.UserName, update.Message.Text)
