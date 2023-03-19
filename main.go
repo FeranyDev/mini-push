@@ -2,9 +2,11 @@ package main
 
 import (
 	"encoding/json"
-	"flag"
 	"github.com/feranydev/mini-push/api"
 	"github.com/feranydev/mini-push/config"
+	"github.com/feranydev/mini-push/database"
+	"github.com/feranydev/mini-push/push"
+	"github.com/feranydev/mini-push/usergroup"
 	"github.com/google/uuid"
 	"github.com/labstack/gommon/log"
 	"net/http"
@@ -12,8 +14,6 @@ import (
 
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 )
-
-var t config.T
 
 type V1Hitokoto struct {
 	Id         int    `json:"id"`
@@ -30,21 +30,13 @@ type V1Hitokoto struct {
 	Length     int    `json:"length"`
 }
 
-var (
-	debug = false
-)
-
 func init() {
-	log.SetHeader("${time_rfc3339} ${level} ${message}")
-	flag.Parse()
-	args := flag.Args()
 
-	if len(args) != 0 {
-		if args[0] == "debug" {
-			debug = true
-			log.SetLevel(log.DEBUG)
-			log.SetHeader("${time_rfc3339} ${level} ${short_file}:${line} ${message}")
-		}
+	if config.Deploy.Debug {
+		log.SetLevel(log.DEBUG)
+		log.SetHeader("${time_rfc3339} ${level} ${short_file}:${line} ${message}")
+	} else {
+		log.SetHeader("${time_rfc3339} ${level} ${message}")
 	}
 }
 
@@ -52,23 +44,28 @@ func main() {
 
 	deploy := config.Deploy
 
-	t.ReadData()
+	usergroup.DefaultUserGroup.ReadUsers()
+
+	database.Connections()
 
 	bot, err := tgbotapi.NewBotAPI(deploy.TgBot)
 	if err != nil {
 		log.Panic(err)
 	}
-	if debug {
+	if deploy.Debug {
 		bot.Debug = true
+		log.Infof("%s", deploy)
+		log.Infof("%s", usergroup.DefaultUserGroup.Data)
 	}
-	config.TgBot = bot
+	push.TgBot = bot
 
 	log.Infof("Authorized on account %s", bot.Self.UserName)
-	log.Infof("Service started successfully currently one with %d users", len(t.Users))
+	log.Infof("Service started successfully currently one with %d users", len(usergroup.DefaultUserGroup.Data))
 	u := tgbotapi.NewUpdate(0)
 	u.Timeout = 60
 
-	go api.Start(bot, &t, deploy)
+	//go api.Start(bot, deploy)
+	go api.Start(bot)
 
 	updates := bot.GetUpdatesChan(u)
 	for update := range updates {
@@ -78,20 +75,20 @@ func main() {
 					switch update.Message.Command() {
 					case "create":
 						log.Debug("[%s] %s", update.Message.From.UserName, update.Message.Text)
-						user, presence := t.FindUserByTgId(update.Message.Chat.ID)
+						user, presence := usergroup.DefaultUserGroup.FindUserByTgId(update.Message.Chat.ID)
 						msg := tgbotapi.NewMessage(update.Message.Chat.ID, "")
 						if presence {
 							msg.Text = "你已经注册过了，推送ID为: " + user.PushId
 						} else {
 							pushID := uuid.NewString()
-							t.AddUser(config.User{PushId: pushID, TgId: update.Message.Chat.ID, PushServer: "tg"})
+							usergroup.DefaultUserGroup.AddUser(usergroup.User{PushId: pushID, TgId: update.Message.Chat.ID, PushServer: "tg"})
 							msg.Text = "注册成功，推送ID为: " + pushID
 						}
 						_, _ = bot.Send(msg)
 					case "bindpushlite":
 						if update.Message.CommandArguments() != "" {
 							token := uuid.NewString()
-							t.AddUser(config.User{
+							usergroup.DefaultUserGroup.AddUser(usergroup.User{
 								PushId:      token,
 								TgId:        update.Message.Chat.ID,
 								PushServer:  "PushLite",
@@ -103,7 +100,7 @@ func main() {
 							_, _ = bot.Send(tgbotapi.NewMessage(update.Message.Chat.ID, "请使用 /bindPushLite [客户端Token] 来绑定推送设备"))
 						}
 					case "select":
-						users := t.FindAllPush(update.Message.Chat.ID)
+						users := usergroup.DefaultUserGroup.FindAllPush(update.Message.Chat.ID)
 						marshal, _ := json.Marshal(users)
 						data := string(marshal)
 						data = strings.Replace(data, "pushId", "推送ID", -1)
@@ -118,7 +115,7 @@ func main() {
 						_, _ = bot.Send(msg)
 					case "delete":
 						if update.Message.CommandArguments() != "" {
-							if err := t.DeletePushToken(update.Message.CommandArguments(), update.Message.Chat.ID); err != nil {
+							if err := usergroup.DefaultUserGroup.DeletePushToken(update.Message.CommandArguments(), update.Message.Chat.ID); err != nil {
 								log.Errorf("删除推送ID失败: %s", err)
 								_, _ = bot.Send(tgbotapi.NewMessage(update.Message.Chat.ID, "删除失败，可能是推送ID不存在或者你没有权限删除"))
 							} else {

@@ -8,11 +8,24 @@ import (
 
 var Deploy *Config
 
+type RedisDB struct {
+	Addr string `yaml:"addr"`
+
+	User string `yaml:"user"`
+	Pass string `yaml:"pass"`
+
+	Db int `yaml:"db"`
+}
+
 type Config struct {
 	Host string `yaml:"host"`
 	Port int    `yaml:"port"`
 
+	Debug bool `yaml:"debug"`
+
 	TgBot string `yaml:"tg_bot"`
+
+	Redis RedisDB `yaml:"redis"`
 }
 
 func init() {
