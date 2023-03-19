@@ -4,6 +4,7 @@ import (
 	"github.com/labstack/gommon/log"
 	"gopkg.in/yaml.v3"
 	"os"
+	"strings"
 )
 
 var Deploy *Config
@@ -29,14 +30,27 @@ type Config struct {
 }
 
 func init() {
-	file, err := os.ReadFile("./config.yaml")
-	if err != nil {
-		log.Panicf("Error reading file: %v", err)
-	}
 
-	if err = yaml.Unmarshal(file, &Deploy); err != nil {
-		log.Panicf("Error while unmarshaling config: %s", err)
-	}
+	config := "./config.yaml"
+	environ := os.Environ()
+	for _, e := range environ {
+		if i := strings.Index(e, "="); i > 0 {
+			key := e[:i]
+			value := e[i+1:]
+			switch key {
+			case "MINI_PUSH_CONFIG":
+				config = value
+			}
+		}
+		file, err := os.ReadFile(config)
+		if err != nil {
+			log.Panicf("Error reading file: %v", err)
+		}
 
-	log.Debug("Read config.yaml file: %s", Deploy)
+		if err = yaml.Unmarshal(file, &Deploy); err != nil {
+			log.Panicf("Error while unmarshaling config: %s", err)
+		}
+
+		log.Debug("Read config.yaml file: %s", Deploy)
+	}
 }
