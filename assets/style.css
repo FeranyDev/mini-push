@@ -1,0 +1,34 @@
+body {
+    font-family: 'Roboto', sans-serif;
+    max-width: 60%;
+    margin: 0 auto;
+    line-height: 1.5;
+}
+
+table {
+    border-collapse: collapse;
+}
+
+th, td {
+    border-bottom: 1px solid #ddd;
+    padding: 15px;
+    text-align: center;
+}
+
+td {
+    min-width: 80px;
+}
+
+code {
+    background: #f6f8fa;
+    margin: 0 4px;
+
+}
+
+pre {
+    background: #f6f8fa;
+}
+
+a {
+    text-decoration: none;
+}
