@@ -1,10 +1,11 @@
 package config
 
 import (
-	"github.com/labstack/gommon/log"
-	"gopkg.in/yaml.v3"
 	"os"
 	"strings"
+
+	"github.com/labstack/gommon/log"
+	"gopkg.in/yaml.v3"
 )
 
 var Deploy *Config
@@ -27,6 +28,8 @@ type Config struct {
 	TgBot string `yaml:"tg_bot"`
 
 	Redis RedisDB `yaml:"redis"`
+
+	LocalMemory bool `yaml:"local_memory"`
 }
 
 func init() {

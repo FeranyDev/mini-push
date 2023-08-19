@@ -2,7 +2,6 @@ package api
 
 import (
 	"fmt"
-	"github.com/feranydev/mini-push/usergroup"
 	"net/http"
 	"time"
 
@@ -12,6 +11,7 @@ import (
 	"github.com/labstack/gommon/log"
 
 	"github.com/feranydev/mini-push/config"
+	"github.com/feranydev/mini-push/usergroup"
 )
 
 type back struct {
@@ -36,6 +36,8 @@ func Start(bot *tgbotapi.BotAPI) {
 			return nil
 		},
 	}))
+
+	e.File("/markdown-to-html/style.css", "assets/style.css")
 
 	//e.Use(middleware.LoggerWithConfig(middleware.LoggerConfig{
 	//	Format: "${time_rfc3339} ${remote_ip} ${method} ${uri}\n",
@@ -65,6 +67,8 @@ func Start(bot *tgbotapi.BotAPI) {
 
 	// 兼容PushPeer格式
 	e.POST("/message/push", pushDeer)
+
+	e.GET("/markdown-to-html/:url", markdownToHtml)
 
 	//*标题 title*
 	//_斜体 italic text_

@@ -138,6 +138,7 @@ func pushDeer(c echo.Context) error {
 			Timestamp: time.Now().Unix(),
 		})
 	}
+	log.Debugf("push data: %+v", data)
 	if user, ok := usergroup.DefaultUserGroup.FindUserByPushId(data.PushKey); ok {
 		if msgId, err := push.Send(user, data.Text, data.Desp, true); err != nil {
 			log.Errorf("send message to %d error: %s", user.TgId, err)

@@ -11,12 +11,15 @@ RUN git clone https://github.com/FeranyDev/mini-push.git && cd mini-push && go i
 
 FROM alpine:latest
 
+WORKDIR /app
+
 MAINTAINER feranydev@gmail.com
 
 ENV MINI_PUSH_CONFIG /app/config.yaml
 
-COPY --from=builder /app/bin/mini-push /app/bin/mini-push
+COPY --from=builder /app/mini-push/config.yaml /app/config.yaml
+COPY --from=builder /app/bin/mini-push /app/mini-push
 
 EXPOSE 3000/tcp
 
-CMD ["/app/bin/mini-push"]
+CMD ["./mini-push"]

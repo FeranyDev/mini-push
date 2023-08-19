@@ -4,10 +4,11 @@ import (
 	"context"
 	"encoding/base64"
 	"encoding/json"
+	"time"
+
 	"github.com/google/uuid"
 	"github.com/labstack/gommon/log"
 	"github.com/redis/go-redis/v9"
-	"time"
 
 	"github.com/feranydev/mini-push/config"
 	"github.com/feranydev/mini-push/util"
@@ -46,13 +47,12 @@ func redisStart() {
 	log.Infof("redis check success")
 }
 
-func redisSet(data sqlMessage) (messageID uuid.UUID, err error) {
-	messageID = uuid.New()
+func redisSet(messageId uuid.UUID, data sqlMessage) (err error) {
 	marshal, err := json.Marshal(data)
 	if err != nil {
 		return
 	}
-	err = rdb.Set(ctx, messageID.String(), base64.StdEncoding.EncodeToString(marshal), 7*24*time.Hour).Err()
+	err = rdb.Set(ctx, messageId.String(), base64.StdEncoding.EncodeToString(marshal), 7*24*time.Hour).Err()
 	return
 }
 

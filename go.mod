@@ -4,6 +4,7 @@ go 1.19
 
 require (
 	github.com/go-telegram-bot-api/telegram-bot-api/v5 v5.5.1
+	github.com/gomarkdown/markdown v0.0.0-20230313173142-2ced44d5b584
 	github.com/google/uuid v1.3.0
 	github.com/labstack/echo/v4 v4.9.0
 	github.com/labstack/gommon v0.4.0

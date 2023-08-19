@@ -1,9 +1,10 @@
 package api
 
 import (
-	"github.com/feranydev/mini-push/database"
 	"github.com/google/uuid"
 	"github.com/labstack/echo/v4"
+
+	"github.com/feranydev/mini-push/database"
 )
 
 func getMessageInfo(c echo.Context) error {

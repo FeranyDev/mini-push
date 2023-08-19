@@ -3,9 +3,11 @@ package usergroup
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/labstack/gommon/log"
 	"os"
 	"sync"
+
+	"github.com/feranydev/mini-push/util"
+	"github.com/labstack/gommon/log"
 )
 
 var DefaultUserGroup T
@@ -25,7 +27,11 @@ type T struct {
 func (t *T) ReadUsers() {
 	t.lck.Lock()
 	defer t.lck.Unlock()
-	file, err := os.ReadFile("./users.json")
+
+	userFile := "./users.json"
+	util.CheckFile(userFile)
+
+	file, err := os.ReadFile(userFile)
 	if err != nil {
 		log.Panicf("Error reading file: %v", err)
 	}

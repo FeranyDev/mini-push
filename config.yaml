@@ -1,6 +1,11 @@
+debug: true
 
 host: "localhost"
 
 port: 3000
 
-tg_bot: "5137003298:AAFKiOeK6z-EaujbZ2u4cj_iBOYcb77ZUlE"
+tg_bot: ""
+
+redis:
+  addr: 192.168.100.1:6379
+

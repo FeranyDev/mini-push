@@ -3,6 +3,7 @@ package push
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/feranydev/mini-push/database"
 	"io"
 	"net/http"
 	"strings"
@@ -11,7 +12,6 @@ import (
 	"github.com/google/uuid"
 	"github.com/labstack/gommon/log"
 
-	"github.com/feranydev/mini-push/database"
 	"github.com/feranydev/mini-push/usergroup"
 )
 
@@ -19,14 +19,22 @@ var (
 	TgBot *tgbotapi.BotAPI
 )
 
-func Send(user usergroup.User, title, text string, copy bool) (messageId string, err error) {
+func Send(user usergroup.User, title, text string, copy bool) (string, error) {
 
 	parse, err := uuid.Parse(user.PushId)
 	if err != nil {
-		log.Errorf(err.Error())
+		return "", err
 	}
 
-	messageId, _ = database.SaveMessage(parse, title, text)
+	messageId := uuid.New()
+
+	go database.SaveMessage(messageId, parse, title, text)
+	go send(user, title, text, copy)
+
+	return messageId.String(), nil
+}
+
+func send(user usergroup.User, title, text string, copy bool) {
 
 	switch user.PushServer {
 	case "tg":
@@ -46,7 +54,10 @@ func Send(user usergroup.User, title, text string, copy bool) (messageId string,
 				}
 			}
 			msg.ParseMode = "markdown"
-			_, err = TgBot.Send(msg)
+			_, err := TgBot.Send(msg)
+			if err != nil {
+				log.Errorf("telegram bot send message error: %s", err)
+			}
 			return
 		}
 
@@ -87,13 +98,13 @@ func Send(user usergroup.User, title, text string, copy bool) (messageId string,
 		req.Header.Set("Content-Type", "application/json")
 		req.Header.Set("Authorization", fmt.Sprintf("%s=%s", "key", "AIzaSyAd-JC3NxVeGRHyo5ZZB2BUmhSA7Z_IqHY"))
 		if resp, err := (&http.Client{}).Do(req); err != nil {
-			return "", err
+			log.Errorf(err.Error())
 		} else {
 			defer resp.Body.Close()
 			body, _ := io.ReadAll(resp.Body)
 			log.Debugf("fcm response: %s", body)
-			return messageId, nil
 		}
+	default:
+		log.Errorf("Unknown push server: %s", user.PushServer)
 	}
-	return "", fmt.Errorf("unknown push server")
 }

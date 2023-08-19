@@ -2,17 +2,18 @@ package main
 
 import (
 	"encoding/json"
+	"net/http"
+	"strings"
+
+	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
+	"github.com/google/uuid"
+	"github.com/labstack/gommon/log"
+
 	"github.com/feranydev/mini-push/api"
 	"github.com/feranydev/mini-push/config"
 	"github.com/feranydev/mini-push/database"
 	"github.com/feranydev/mini-push/push"
 	"github.com/feranydev/mini-push/usergroup"
-	"github.com/google/uuid"
-	"github.com/labstack/gommon/log"
-	"net/http"
-	"strings"
-
-	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 )
 
 type V1Hitokoto struct {

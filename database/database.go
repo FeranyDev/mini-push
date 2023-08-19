@@ -1,10 +1,10 @@
 package database
 
 import (
-	"github.com/labstack/gommon/log"
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/labstack/gommon/log"
 
 	"github.com/feranydev/mini-push/config"
 )
@@ -19,25 +19,46 @@ type sqlMessage struct {
 type Message sqlMessage
 
 func Connections() {
-	redisStart()
+	if config.Deploy.Redis.Addr == "" {
+		log.Infof("redis not set")
+		return
+	} else {
+		redisStart()
+	}
+	if config.Deploy.LocalMemory {
+		lmStart()
+	}
 }
 
-func SaveMessage(pushID uuid.UUID, title, text string) (string, bool) {
-	if config.Deploy.Redis.Addr != "" {
-		messageID, err := redisSet(sqlMessage{
-			PushID:    pushID,
-			Title:     title,
-			Text:      text,
-			SpeedTime: time.Now().Unix(),
-		})
-		if err != nil {
-			return "error", false
-		}
-		return messageID.String(), true
+func SaveMessage(messageId, pushID uuid.UUID, title, text string) bool {
+	data := sqlMessage{
+		PushID:    pushID,
+		Title:     title,
+		Text:      text,
+		SpeedTime: time.Now().Unix(),
 	}
 
-	return "404", false
+	success := true
 
+	if config.Deploy.Redis.Addr != "" {
+		err := redisSet(messageId, data)
+		if err != nil {
+			success = false
+		}
+	}
+
+	if config.Deploy.LocalMemory {
+		ok := lmSet(messageId, data)
+		if !ok {
+			success = false
+		}
+	}
+
+	if success {
+		return true
+	}
+
+	return false
 }
 
 func GetMessageByMsgID(msgId uuid.UUID) (Message, bool) {
@@ -48,6 +69,13 @@ func GetMessageByMsgID(msgId uuid.UUID) (Message, bool) {
 			return Message{}, false
 		}
 		return Message(data), true
+	}
+
+	if config.Deploy.LocalMemory {
+		data, ok := lmGet(msgId)
+		if ok {
+			return Message(data), true
+		}
 	}
 
 	return Message{}, false
